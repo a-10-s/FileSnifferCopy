@@ -19,7 +19,6 @@ SETTINGS_PATH = APP_DATA_DIR / "settings.json"
 
 # Default config settings
 DEFAULT_SETTINGS = {
-    "oiiotool_path": "oiiotool.exe",  # Assumes it might be on PATH, or user selects it
     "ffmpeg_path": "ffmpeg",          # Default FFmpeg binary name/path
     "settle_time_seconds": 60,       # Default file lock settle time
     "max_threads": 4,                # Parallel copies/conversions

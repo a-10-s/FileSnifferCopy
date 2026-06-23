@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 import database
-import transcoder
 
 class SettingsModal(QDialog):
     def __init__(self, parent=None):
@@ -27,29 +26,9 @@ class SettingsModal(QDialog):
         card_layout.setSpacing(12)
 
         # Title/Description
-        desc_label = QLabel("Configure engine preferences and OpenImageIO pathways.")
+        desc_label = QLabel("Configure engine preferences and FFmpeg pathways.")
         desc_label.setObjectName("subtitleLabel")
         card_layout.addWidget(desc_label)
-
-        # oiiotool Path
-        path_label = QLabel("Path to oiiotool.exe:")
-        path_label.setObjectName("label-sm")
-        card_layout.addWidget(path_label)
-
-        path_row = QHBoxLayout()
-        self.path_input = QLineEdit()
-        self.path_input.setPlaceholderText("e.g. oiiotool.exe or C:/path/to/oiiotool.exe")
-        self.path_input.setText(str(database.get_setting("oiiotool_path", "oiiotool.exe")))
-        path_row.addWidget(self.path_input)
-
-        browse_btn = QPushButton("Browse...")
-        browse_btn.clicked.connect(self.browse_oiiotool)
-        path_row.addWidget(browse_btn)
-
-        test_btn = QPushButton("Test Binary")
-        test_btn.clicked.connect(self.test_oiiotool)
-        path_row.addWidget(test_btn)
-        card_layout.addLayout(path_row)
 
         # FFmpeg Path
         ffmpeg_label = QLabel("Path to ffmpeg.exe:")
@@ -125,20 +104,7 @@ class SettingsModal(QDialog):
 
         layout.addLayout(btn_row)
 
-    def browse_oiiotool(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Locate oiiotool Executable", "", "Executable Files (*.exe);;All Files (*)"
-        )
-        if file_path:
-            self.path_input.setText(os.path.normpath(file_path))
 
-    def test_oiiotool(self):
-        path = self.path_input.text().strip()
-        ok, msg = transcoder.verify_oiiotool(path)
-        if ok:
-            QMessageBox.information(self, "Validation Success", f"Success!\n{msg}")
-        else:
-            QMessageBox.critical(self, "Validation Failed", f"Failed!\n{msg}")
 
     def browse_ffmpeg(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -149,6 +115,8 @@ class SettingsModal(QDialog):
 
     def test_ffmpeg(self):
         path = self.ffmpeg_input.text().strip()
+        # Import dynamically to avoid unused import at top
+        import transcoder
         ok, msg = transcoder.verify_ffmpeg(path)
         if ok:
             QMessageBox.information(self, "Validation Success", f"Success!\n{msg}")
@@ -156,7 +124,6 @@ class SettingsModal(QDialog):
             QMessageBox.critical(self, "Validation Failed", f"Failed!\n{msg}")
 
     def save_settings(self):
-        database.set_setting("oiiotool_path", self.path_input.text().strip())
         database.set_setting("ffmpeg_path", self.ffmpeg_input.text().strip())
         database.set_setting("settle_time_seconds", self.settle_spin.value())
         database.set_setting("max_threads", self.threads_spin.value())

@@ -444,59 +444,19 @@ def process_file_sync(job, file_info, settle_time, oiiotool_path, progress_callb
     # Ensure destination subfolders exist
     abs_dst.parent.mkdir(parents=True, exist_ok=True)
     
-    # 2. Check if conversion is enabled and matches file format
-    convert_enabled = job['convert_enabled']
-    convert_exts = [e.strip().lower() for e in job['convert_extensions'].split(',') if e.strip()]
-    file_ext = abs_src.suffix.lower().lstrip('.')
-    
-    should_transcode = False
-    if convert_enabled and file_ext in convert_exts:
-        should_transcode = True
-        
     bytes_transferred = file_size
     bytes_saved = 0
     success = False
     err_msg = None
     
-    # Import transcoder here to avoid circular dependencies
-    import transcoder
-    
     try:
-        if should_transcode:
-            # Attempt to transcode
-            compression = job['target_compression']
-            # We'll write to a temp file first, then swap to avoid partial transfers
-            temp_dst = abs_dst.with_suffix(abs_dst.suffix + ".tmp_transcode")
-            
-            ok, output_size, err = transcoder.transcode_exr(
-                oiiotool_path, abs_src, temp_dst, compression
-            )
-            
-            if ok:
-                if temp_dst.exists():
-                    if abs_dst.exists():
-                        abs_dst.unlink()
-                    temp_dst.rename(abs_dst)
-                    bytes_transferred = output_size
-                    bytes_saved = max(0, file_size - output_size)
-                    success = True
-                else:
-                    err_msg = "Transcode succeeded but output file not found."
-            else:
-                err_msg = f"Transcode failed: {err}. Falling back to normal copy."
-                # Fallback to normal copy on failure
-                shutil.copy2(abs_src, abs_dst)
-                bytes_transferred = file_size
-                bytes_saved = 0
-                success = True
-        else:
-            # Direct binary copy (with temp file swap for safety)
-            temp_dst = abs_dst.with_suffix(abs_dst.suffix + ".tmp_copy")
-            shutil.copy2(abs_src, temp_dst)
-            if abs_dst.exists():
-                abs_dst.unlink()
-            temp_dst.rename(abs_dst)
-            success = True
+        # Direct binary copy (with temp file swap for safety)
+        temp_dst = abs_dst.with_suffix(abs_dst.suffix + ".tmp_copy")
+        shutil.copy2(abs_src, temp_dst)
+        if abs_dst.exists():
+            abs_dst.unlink()
+        temp_dst.rename(abs_dst)
+        success = True
             
     except Exception as e:
         success = False

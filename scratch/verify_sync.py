@@ -34,13 +34,10 @@ def main():
     print(f"Test Destination: {dst_dir}")
 
     # 2. Configure Settings in SQLite
-    mock_oiiotool = str((Path(__file__).resolve().parent / "mock_oiiotool.bat").resolve())
-    database.set_setting("oiiotool_path", mock_oiiotool)
     database.set_setting("settle_time_seconds", 1)  # 1 second for fast test runs
     database.set_setting("max_threads", 2)
     
     print("Database Settings updated:")
-    print(f"  - oiiotool_path: {database.get_setting('oiiotool_path')}")
     print(f"  - settle_time:   {database.get_setting('settle_time_seconds')}s")
 
     # 3. Create a Test Job
@@ -56,7 +53,7 @@ def main():
         destination=str(dst_dir.resolve()),
         schedule_type="Manual",
         schedule_value="",
-        convert_enabled=1,
+        convert_enabled=0,
         convert_extensions="exr",
         target_compression="dwab"
     )
@@ -121,17 +118,17 @@ def main():
         sys.exit(1)
     print("  - Text file copied successfully.")
 
-    # Check copy & transcode of EXR file
+    # Check copy of EXR file
     exr_dest = dst_dir / "shot01_beauty_0001.exr"
     if not exr_dest.exists():
         print("FAIL: shot01_beauty_0001.exr was not copied!", file=sys.stderr)
         sys.exit(1)
     with open(exr_dest, "r") as f:
         content = f.read()
-    if "MOCK EXR FILE" not in content or "Compression: dwab" not in content:
-        print("FAIL: EXR conversion did not occur or failed!", file=sys.stderr)
+    if "Raw image pixel data" not in content:
+        print("FAIL: EXR file was not copied correctly!", file=sys.stderr)
         sys.exit(1)
-    print("  - EXR file converted & copied successfully.")
+    print("  - EXR file copied successfully.")
 
     # 7. Test Incremental Sync (should skip files)
     print("\nTesting incremental sync (second run should skip files)...")

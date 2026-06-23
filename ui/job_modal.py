@@ -122,41 +122,6 @@ class JobModal(QDialog):
         mode_row.addWidget(self.mode_combo, stretch=1)
         card_layout.addLayout(mode_row)
 
-        card_layout.addWidget(QLabel("Transcoding options:"))
-        
-        # Transcoding inner card
-        trans_card = QFrame()
-        trans_card.setObjectName("innerCard")
-        trans_layout = QVBoxLayout(trans_card)
-        trans_layout.setSpacing(8)
-
-        self.trans_checkbox = QCheckBox("Enable Transcode & Copy (Highly Recommended)")
-        self.trans_checkbox.stateChanged.connect(self.toggle_transcode_fields)
-        trans_layout.addWidget(self.trans_checkbox)
-
-        # Transcode settings grid
-        self.trans_settings_widget = QWidget()
-        trans_grid = QVBoxLayout(self.trans_settings_widget)
-        trans_grid.setContentsMargins(0, 0, 0, 0)
-        trans_grid.setSpacing(8)
-
-        ext_label = QLabel("Target file extensions to convert (comma-separated):")
-        ext_label.setObjectName("label-sm")
-        self.ext_input = QLineEdit()
-        self.ext_input.setText("exr")
-        trans_grid.addWidget(ext_label)
-        trans_grid.addWidget(self.ext_input)
-
-        comp_label = QLabel("Target EXR Compression:")
-        comp_label.setObjectName("label-sm")
-        self.comp_combo = QComboBox()
-        self.comp_combo.addItems(["dwab", "dwaa", "zip", "piz", "zips"])
-        trans_grid.addWidget(comp_label)
-        trans_grid.addWidget(self.comp_combo)
-
-        trans_layout.addWidget(self.trans_settings_widget)
-        card_layout.addWidget(trans_card)
-
         # Cache Auto-Pruning card
         card_layout.addWidget(QLabel("Cache Auto-Pruning options:"))
         prune_card = QFrame()
@@ -227,7 +192,6 @@ class JobModal(QDialog):
         layout.addLayout(btn_row)
         
         # Default state
-        self.toggle_transcode_fields(Qt.Unchecked)
         self.toggle_prune_fields(Qt.Unchecked)
         self.toggle_proxy_fields(Qt.Unchecked)
 
@@ -244,9 +208,7 @@ class JobModal(QDialog):
         elif text == "Daily":
             self.sched_stack.setCurrentWidget(self.daily_widget)
 
-    def toggle_transcode_fields(self, state):
-        enabled = self.trans_checkbox.isChecked()
-        self.trans_settings_widget.setEnabled(enabled)
+
 
     def toggle_prune_fields(self, state):
         enabled = self.prune_checkbox.isChecked()
@@ -278,9 +240,7 @@ class JobModal(QDialog):
                 except Exception:
                     self.daily_time.setTime(QTime(18, 0))
                     
-            self.trans_checkbox.setChecked(job['convert_enabled'] == 1)
-            self.ext_input.setText(job['convert_extensions'])
-            self.comp_combo.setCurrentText(job['target_compression'])
+
             self.prune_checkbox.setChecked(job['prune_enabled'] == 1)
             self.prune_spin.setValue(int(job['prune_threshold_gb'] or 20))
             self.proxy_checkbox.setChecked(job['proxy_enabled'] == 1)
@@ -320,9 +280,9 @@ class JobModal(QDialog):
             sched_val = ""
             save_type = "Manual"
 
-        convert_enabled = 1 if self.trans_checkbox.isChecked() else 0
-        convert_extensions = self.ext_input.text().strip()
-        target_compression = self.comp_combo.currentText()
+        convert_enabled = 0
+        convert_extensions = ""
+        target_compression = ""
         prune_enabled = 1 if self.prune_checkbox.isChecked() else 0
         prune_threshold = self.prune_spin.value()
         proxy_enabled = 1 if self.proxy_checkbox.isChecked() else 0

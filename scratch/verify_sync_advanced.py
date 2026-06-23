@@ -33,11 +33,8 @@ def main():
     # 1. Setup folders
     src_dir, dst_dir = setup_test_directories()
     
-    # 2. Configure Mock Executables
-    mock_oiiotool = str((Path(__file__).resolve().parent / "mock_oiiotool.bat").resolve())
     mock_ffmpeg = str((Path(__file__).resolve().parent / "mock_ffmpeg.bat").resolve())
     
-    database.set_setting("oiiotool_path", mock_oiiotool)
     database.set_setting("ffmpeg_path", mock_ffmpeg)
     database.set_setting("settle_time_seconds", 1)  # 1s settle time
     database.set_setting("max_threads", 2)
@@ -55,7 +52,7 @@ def main():
         destination=str(dst_dir.resolve()),
         schedule_type="Manual",
         schedule_value="",
-        convert_enabled=1,
+        convert_enabled=0,
         convert_extensions="exr",
         target_compression="dwab",
         prune_enabled=0,               # start with pruning disabled
@@ -130,7 +127,7 @@ def main():
         destination=str(dst_dir.resolve()),
         schedule_type="Manual",
         schedule_value="",
-        convert_enabled=1,
+        convert_enabled=0,
         convert_extensions="exr",
         target_compression="dwab",
         active=1,

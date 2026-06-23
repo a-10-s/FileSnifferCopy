@@ -89,11 +89,6 @@ class JobCard(QFrame):
 
         # Settings and Schedule Summary
         summary = []
-        if self.job['convert_enabled']:
-            summary.append(f"Transcode ({self.job['convert_extensions']} -> {self.job['target_compression'].upper()})")
-        else:
-            summary.append("Direct Copy")
-            
         sched_t = self.job['schedule_type']
         if sched_t == 'Interval':
             summary.append(f"Sched: Interval ({self.job['schedule_value']} Min)")
