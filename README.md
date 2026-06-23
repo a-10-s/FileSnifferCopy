@@ -81,7 +81,65 @@ python scratch/verify_sync_modes.py
 
 ---
 
-## ⚙️ Technical Details
+## ⚙️ Global Configuration Settings
 
-* **File Locking:** A file is deemed "settled" only if its modification time (`mtime`) is older than the configured settle-time threshold (default: 60 seconds) AND the file can be opened exclusively for writing.
-* **SQLite Cache & Log:** Sync history, savings, and job logs are written locally in a transactions database, ensuring data persistence and uninterrupted studio pipeline reporting.
+Click the **Settings** button in the top right corner of the dashboard to configure global parameters:
+
+1. **Path to ffmpeg.exe:** The absolute path to your system's `ffmpeg` executable. This is required if you enable **Automated Review Proxies** on any job. You can click **Test Binary** to verify configuration.
+2. **File Settle Time (sec):** The cooldown duration (default: `60` seconds) since a file's last modified timestamp before it is synced. This prevents the app from copying files that are still being written by render nodes or active artist processes.
+3. **Max Worker Threads:** The maximum number of concurrent files copied or checked simultaneously (default: `4`). Adjust based on network and disk IO capabilities.
+4. **Folder Scan Tick (sec):** The background scheduler's polling rate (default: `30` seconds). The app wakes up at this interval to check if any active scheduled jobs are due.
+
+---
+
+## 📅 Configuring & Using Cron Sync Jobs
+
+Click the **New Cron Job** button on the dashboard to configure folder tasks.
+
+### 1. Basic Fields
+* **Job Identifier Name:** The descriptive name for the sync job (e.g. `Sequence_A_Sync`).
+* **Source Watch Folder:** The directory where files are written (supports local, external, or LAN network paths).
+* **Destination Output Folder:** The target folder where files will be copied.
+
+### 2. Sync Copy Mode
+* **Mirror Folder (Brute Force):** Copies everything from source to destination without prompts or manual confirmation. Best for fully automated schedules.
+* **Target Update (Analyze & Confirm):** Scans directories and provides a detailed comparison showing new, modified, or conflicting files. You select which files are allowed to overwrite before proceeding.
+
+### 3. Scheduling Types
+* **Manual:** No automatic trigger. The job only runs when you click the **Run Now** button on the card.
+* **Interval (Min):** Runs periodically every *N* minutes.
+* **Daily:** Runs once every day at a specific `HH:MM` time (e.g., `18:30` for a daily backup at 6:30 PM).
+
+### 4. Advanced Card Settings
+* **Cache Auto-Pruning:** Specify the minimum free disk space on the destination drive (in GB). If space drops below this threshold, the sync engine deletes the oldest synced files in the target directory to free up space.
+* **Automated Proxy Generation:** Generates a compressed MP4 review proxy movie from image sequences upon successful transfer. You can specify a custom framerate (FPS) for playback.
+
+---
+
+## 📦 Building Platform Installers & Binaries
+
+If you want to package FileSniffer into a single-file executable package to distribute to artist workstations without installing Python:
+
+### Windows Build (Executable)
+1. Install PyInstaller in your python environment:
+   ```bash
+   pip install pyinstaller
+   ```
+2. Run the compiler from the project directory:
+   ```bash
+   pyinstaller --noconsole --onefile --name="FileSniffer" --icon="ui/resources/logo.svg" --add-data="ui/resources/logo.svg;ui/resources" main.py
+   ```
+3. The executable file will be built inside the `dist/` directory as `FileSniffer.exe`.
+
+### macOS Build (App Bundle)
+1. Install PyInstaller:
+   ```bash
+   pip install pyinstaller
+   ```
+2. Run the compiler with colon-separated paths for resource bundle packaging:
+   ```bash
+   pyinstaller --noconsole --onefile --windowed --name="FileSniffer" --icon="ui/resources/logo.svg" --add-data="ui/resources/logo.svg:ui/resources" main.py
+   ```
+3. The app bundle will be generated under `dist/FileSniffer.app`.
+
+*Note: Ensure that the `ffmpeg` binary is available on the target system's environment `PATH`, or set its absolute location in the application's global **Settings** panel.*

@@ -106,11 +106,27 @@ def get_stylesheet():
         QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QTimeEdit:focus {
             border: 1px solid #FF6B00;
         }
+        QComboBox:hover {
+            border: 1px solid #FF6B00;
+            background-color: #27272A;
+        }
         QComboBox::drop-down {
             subcontrol-origin: padding;
             subcontrol-position: top right;
             width: 25px;
             border-left: 1px solid #27272A;
+        }
+        QComboBox::down-arrow {
+            image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF6B00' width='18px' height='18px'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            width: 14px;
+            height: 14px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #18181B;
+            border: 1px solid #FF6B00;
+            selection-background-color: #FF6B00;
+            selection-color: #FFFFFF;
+            color: #E4E4E7;
         }
 
         /* Scroll Area and Viewports */
