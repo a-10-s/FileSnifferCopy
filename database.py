@@ -232,5 +232,12 @@ def get_total_savings():
     conn.close()
     return row["total"] if row and row["total"] else 0
 
+def clear_history():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sync_history")
+    conn.commit()
+    conn.close()
+
 # Initialize DB when loaded
 init_db()

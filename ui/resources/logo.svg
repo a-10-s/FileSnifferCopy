@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1E24" />
+      <stop offset="100%" stop-color="#09090B" />
+    </linearGradient>
+    <!-- Accent Orange Gradient -->
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8533" />
+      <stop offset="100%" stop-color="#FF6B00" />
+    </linearGradient>
+    <!-- Accent Cyan Gradient -->
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF" />
+      <stop offset="100%" stop-color="#00B0FF" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer frame (Sleek dark rounded square) -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bgGrad)" stroke="#27272A" stroke-width="4"/>
+  
+  <!-- Outer speed rings/radar notches (representing filesniffer) -->
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#27272A" stroke-width="2" stroke-dasharray="16 8"/>
+  <circle cx="64" cy="64" r="50" fill="none" stroke="url(#cyanGrad)" stroke-width="2" stroke-dasharray="4 20"/>
+
+  <!-- Logo Letters "F" and "S" -->
+  <!-- Letter "F" in Cyber Orange -->
+  <path d="M 36 38 L 68 38 L 68 48 L 48 48 L 48 60 L 64 60 L 64 70 L 48 70 L 48 90 L 36 90 Z" fill="url(#orangeGrad)" />
+  
+  <!-- Letter "S" in Cool Zinc/White overlay, offset slightly -->
+  <path d="M 68 72 L 86 72 C 89 72 92 74 92 78 C 92 82 89 84 86 84 L 68 84 L 68 92 L 86 92 C 94 92 98 86 98 78 C 98 70 94 64 86 64 L 78 64 C 74 64 72 62 72 58 C 72 54 74 52 78 52 L 92 52 L 92 44 L 78 44 C 70 44 62 50 62 58 C 62 66 70 72 78 72 Z" fill="#E4E4E7" />
+  
+  <!-- Sniffer crosshair / radar center dot -->
+  <circle cx="64" cy="64" r="4" fill="#00E5FF"/>
+</svg>

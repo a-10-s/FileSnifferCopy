@@ -73,9 +73,16 @@ class LogWindow(QMainWindow):
         # Action Buttons
         btn_vbox = QVBoxLayout()
         btn_vbox.addStretch()
+        
         self.export_btn = QPushButton("Export CSV")
         self.export_btn.clicked.connect(self.export_csv)
         btn_vbox.addWidget(self.export_btn)
+
+        self.clear_btn = QPushButton("Clear Logs")
+        self.clear_btn.setObjectName("dangerBtn")
+        self.clear_btn.clicked.connect(self.clear_logs)
+        btn_vbox.addWidget(self.clear_btn)
+
         filter_layout.addLayout(btn_vbox)
 
         layout.addWidget(filter_card)
@@ -236,3 +243,19 @@ class LogWindow(QMainWindow):
             QMessageBox.information(self, "Export Complete", f"History successfully exported to:\n{file_path}")
         except Exception as e:
             QMessageBox.critical(self, "Export Failed", f"Failed to export log to CSV:\n{str(e)}")
+
+    def clear_logs(self):
+        reply = QMessageBox.question(
+            self, "Confirm Clear",
+            "Are you sure you want to clear all sync history logs?\nThis operation cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                database.clear_history()
+                self.refresh_logs()
+                # If parent exists and is dashboard, refresh statistics
+                if self.parent() and hasattr(self.parent(), 'refresh_stats'):
+                    self.parent().refresh_stats()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to clear logs:\n{str(e)}")

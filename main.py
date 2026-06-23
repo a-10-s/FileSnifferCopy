@@ -17,6 +17,11 @@ class FileSnifferApp(QApplication):
         # Set stylesheet globally
         self.setStyleSheet(get_stylesheet())
 
+        # Set global window icon using our SVG logo
+        logo_path = Path(__file__).resolve().parent / "ui" / "resources" / "logo.svg"
+        if logo_path.exists():
+            self.setWindowIcon(QIcon(str(logo_path)))
+
         # Initialize main window
         self.window = DashboardWindow()
 
@@ -58,7 +63,11 @@ class FileSnifferApp(QApplication):
 
     def setup_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self.create_tray_icon())
+        logo_path = Path(__file__).resolve().parent / "ui" / "resources" / "logo.svg"
+        if logo_path.exists():
+            self.tray_icon.setIcon(QIcon(str(logo_path)))
+        else:
+            self.tray_icon.setIcon(self.create_tray_icon())
         self.tray_icon.setToolTip("FileSniffer Service")
 
         # Context Menu

@@ -354,6 +354,16 @@ class DashboardWindow(QMainWindow):
 
         # Header Row
         header = QHBoxLayout()
+        header.setSpacing(10)
+        
+        # Branded logo next to the title
+        logo_label = QLabel()
+        logo_path = Path(__file__).resolve().parent / "resources" / "logo.svg"
+        if logo_path.exists():
+            logo_pix = QIcon(str(logo_path)).pixmap(28, 28)
+            logo_label.setPixmap(logo_pix)
+        header.addWidget(logo_label)
+
         title_box = QVBoxLayout()
         title = QLabel("FileSniffer")
         title.setObjectName("titleLabel")
@@ -493,7 +503,7 @@ class DashboardWindow(QMainWindow):
     def open_log_window(self):
         from ui.log_window import LogWindow
         if not hasattr(self, 'log_window') or self.log_window is None:
-            self.log_window = LogWindow()
+            self.log_window = LogWindow(self)
         self.log_window.show()
         self.log_window.raise_()
         self.log_window.activateWindow()
