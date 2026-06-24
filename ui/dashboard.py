@@ -48,7 +48,6 @@ class JobCard(QFrame):
         header.addStretch()
 
         self.status_label = QLabel()
-        self.update_status_display()
         header.addWidget(self.status_label)
         layout.addLayout(header)
 
@@ -149,6 +148,7 @@ class JobCard(QFrame):
         actions.addWidget(self.details_btn)
 
         layout.addLayout(actions)
+        self.update_status_display()
 
 
     def update_status_display(self):
