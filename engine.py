@@ -511,9 +511,9 @@ def sync_job(job_id, progress_callback=None, finished_callback=None, files_to_sy
     Run sync process for a single job in a thread-safe manner.
     """
     job = database.get_job(job_id)
-    if not job or not job['active']:
+    if not job:
         if finished_callback:
-            finished_callback(job_id, False, "Job is invalid or inactive")
+            finished_callback(job_id, False, "Job is invalid")
         return
         
     # Get exclusive lock for this job to prevent double-runs
