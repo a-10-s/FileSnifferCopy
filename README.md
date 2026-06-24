@@ -116,27 +116,40 @@ Click the **New Cron Job** button on the dashboard to configure folder tasks.
 
 ---
 
-## 📦 Building Platform Installers & Binaries
+## 📦 Building Platform Installers & Standalone Binaries
 
-If you want to package FileSniffer into a single-file executable package to distribute to artist workstations without installing Python:
+If you want to package FileSniffer into a standalone executable or application bundle to distribute to artist workstations without requiring a Python installation:
 
-### Windows Build (Executable)
-1. Install PyInstaller in your python environment:
+> [!NOTE]
+> These commands generate a standalone **executable executable binary** (`.exe` on Windows, `.app` on macOS). If you need an **installer wizard** (e.g., a `.msi` or Setup `.exe` on Windows), you can package the generated executable using tools like **Inno Setup**, **NSIS**, or **Wix Toolset**.
+
+### Windows Build (Standalone Executable)
+
+1. Make sure PyInstaller and Pillow are installed in your environment:
    ```bash
-   pip install pyinstaller
+   pip install pyinstaller pillow
    ```
-2. Run the compiler from the project directory:
+2. Generate the native `.ico` file from the SVG asset if it's missing or changed:
    ```bash
-   pyinstaller --noconsole --onefile --name="FileSniffer" --icon="ui/resources/logo.svg" --add-data="ui/resources/logo.svg;ui/resources" main.py
+   python scratch/generate_ico.py
    ```
-3. The executable file will be built inside the `dist/` directory as `FileSniffer.exe`.
+3. Run the compiler using the configured spec file (Recommended):
+   ```bash
+   pyinstaller FileSniffer.spec
+   ```
+   Or if building manually via the command line from scratch:
+   ```bash
+   pyinstaller --noconsole --onefile --name="FileSniffer" --icon="ui/resources/logo.ico" --add-data="ui/resources/logo.svg;ui/resources" main.py
+   ```
+4. The executable file will be built inside the `dist/` directory as `FileSniffer.exe`.
 
 ### macOS Build (App Bundle)
+
 1. Install PyInstaller:
    ```bash
    pip install pyinstaller
    ```
-2. Run the compiler with colon-separated paths for resource bundle packaging:
+2. Run the compiler using colon-separated paths for resource bundle packaging:
    ```bash
    pyinstaller --noconsole --onefile --windowed --name="FileSniffer" --icon="ui/resources/logo.svg" --add-data="ui/resources/logo.svg:ui/resources" main.py
    ```
