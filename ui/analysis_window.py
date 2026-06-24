@@ -1,9 +1,10 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QFrame,
-    QWidget
+    QTreeWidget, QTreeWidgetItem, QHeaderView, QFrame,
+    QAbstractItemView
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from datetime import datetime
 
 class AnalysisWindow(QDialog):
@@ -12,11 +13,12 @@ class AnalysisWindow(QDialog):
         self.job = job
         self.pending_files = pending_files
         self.selected_files = []
+        self._updating_checks = False
         
         self.setWindowTitle(f"Overwrite Analysis - {job['name']}")
-        self.resize(800, 500)
+        self.resize(900, 600)  # slightly wider to accommodate folder tree structure nicely
         self.init_ui()
-        self.populate_table()
+        self.populate_tree()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -56,17 +58,67 @@ class AnalysisWindow(QDialog):
         action_row.addStretch()
         layout.addLayout(action_row)
 
-        # Table
-        self.table = QTableWidget()
-        self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels([
-            "Copy", "File Path", "Source Size", "Target Size", "Conflict Detail", "Last Modified (Src)"
+        # Tree Widget
+        self.tree = QTreeWidget()
+        self.tree.setColumnCount(5)
+        self.tree.setHeaderLabels([
+            "File Path", "Source Size", "Target Size", "Conflict Detail", "Last Modified (Src)"
         ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch) # Path stretch
-        self.table.verticalHeader().setVisible(False)
-        self.table.setAlternatingRowColors(True)
-        layout.addWidget(self.table)
+        self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.tree.setAlternatingRowColors(True)
+        
+        # Style tree widget to match dark theme beautifully
+        self.tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #18181B;
+                border: 1px solid #27272A;
+                alternate-background-color: #131316;
+                border-radius: 6px;
+            }
+            QHeaderView::section {
+                background-color: #0F0F11;
+                color: #A1A1AA;
+                padding: 6px;
+                border: none;
+                border-bottom: 1px solid #27272A;
+                font-weight: bold;
+            }
+            QTreeWidget::item {
+                padding: 4px;
+            }
+            QTreeWidget::item:selected {
+                background-color: #FF6B00;
+                color: #FFFFFF;
+            }
+            QTreeWidget::indicator {
+                width: 16px;
+                height: 16px;
+                border: 1px solid #3F3F46;
+                border-radius: 3px;
+                background-color: #222226;
+            }
+            QTreeWidget::indicator:hover {
+                border-color: #FF6B00;
+            }
+            QTreeWidget::indicator:checked {
+                background-color: #FF6B00;
+                border-color: #FF8533;
+                image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white' width='16px' height='16px'%3E%3Cpath d='M0 0h24v24H0z' fill='none'/%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+            }
+            QTreeWidget::indicator:indeterminate {
+                background-color: #FF6B00;
+                border-color: #FF8533;
+                image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white' width='16px' height='16px'%3E%3Crect x='4' y='11' width='16' height='2'/%3E%3C/svg%3E");
+            }
+        """)
+
+        self.tree.header().setSectionResizeMode(QHeaderView.Interactive)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        
+        # Connect check state change signal
+        self.tree.itemChanged.connect(self.on_item_changed)
+        
+        layout.addWidget(self.tree)
 
         # Footer Actions
         footer = QHBoxLayout()
@@ -83,108 +135,167 @@ class AnalysisWindow(QDialog):
         
         layout.addLayout(footer)
 
-    def populate_table(self):
-        self.table.setRowCount(0)
-        self.table.setRowCount(len(self.pending_files))
-
-        # Sort files so overwrites are grouped first, then new files
-        # (New files conflict_type is 'new', overwrites are 'overwrite_newer' / 'overwrite_size' / 'overwrite_forced')
-        self.pending_files = sorted(
-            self.pending_files, 
-            key=lambda x: (x.get('conflict_type') == 'new', x['relative_path'])
-        )
-
-        for row_idx, f in enumerate(self.pending_files):
-            # Checkbox
-            checkbox_widget = QWidget()
-            chk_lay = QHBoxLayout(checkbox_widget)
-            chk_lay.setContentsMargins(0, 0, 0, 0)
-            chk_lay.setAlignment(Qt.AlignCenter)
-            chk = QCheckBox()
-            chk.setChecked(True) # Checked by default
-            chk_lay.addWidget(chk)
-            self.table.setCellWidget(row_idx, 0, checkbox_widget)
+    def populate_tree(self):
+        self.tree.clear()
+        
+        # Sort files so they are processed in order
+        sorted_files = sorted(self.pending_files, key=lambda x: x['relative_path'])
+        
+        # Keep track of folder nodes
+        folder_cache = {}
+        
+        for f in sorted_files:
+            # Normalize path separators
+            path = f['relative_path'].replace('\\', '/')
+            parts = path.split('/')
             
-            # Save checkbox reference on the dict to read later
-            f['chk_reference'] = chk
+            current_parent = self.tree.invisibleRootItem()
+            current_path = ""
+            
+            for i, part in enumerate(parts):
+                if i < len(parts) - 1:
+                    # Directory part
+                    current_path = f"{current_path}/{part}" if current_path else part
+                    if current_path in folder_cache:
+                        current_parent = folder_cache[current_path]
+                    else:
+                        item = QTreeWidgetItem(current_parent)
+                        item.setText(0, f"📁 {part}")
+                        item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate)
+                        item.setCheckState(0, Qt.Checked)
+                        
+                        folder_cache[current_path] = item
+                        current_parent = item
+                else:
+                    # File part
+                    item = QTreeWidgetItem(current_parent)
+                    item.setText(0, f"📄 {part}")
+                    item.setData(0, Qt.UserRole, f)
+                    item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                    item.setCheckState(0, Qt.Checked)
+                    
+                    # Source Size
+                    src_mb = f['size'] / (1024**2)
+                    item.setText(1, f"{src_mb:.2f} MB")
+                    
+                    # Target Size
+                    if f.get('target_exists'):
+                        tgt_mb = f['target_size'] / (1024**2)
+                        item.setText(2, f"{tgt_mb:.2f} MB")
+                    else:
+                        item.setText(2, "--")
+                        
+                    # Conflict Detail
+                    conflict = f.get('conflict_type', 'new')
+                    if conflict == 'new':
+                        txt = "NEW FILE"
+                        col = QColor("#00FF00")
+                    elif conflict == 'overwrite_size':
+                        txt = "OVERWRITE (Size changed)"
+                        col = QColor("#00E5FF")
+                    elif conflict == 'overwrite_newer':
+                        txt = "OVERWRITE (Source is newer)"
+                        col = QColor("#00E5FF")
+                    else:
+                        txt = "OVERWRITE"
+                        col = QColor("#00E5FF")
+                    
+                    item.setText(3, txt)
+                    item.setForeground(3, col)
+                    
+                    # Last Modified Date (Source)
+                    dt_str = datetime.fromtimestamp(f['mtime']).strftime("%Y-%m-%d %H:%M:%S")
+                    item.setText(4, dt_str)
 
-            # File Path
-            path_item = QTableWidgetItem(f['relative_path'])
-            path_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            self.table.setItem(row_idx, 1, path_item)
+        # Expand all folders by default
+        self.tree.expandAll()
+        
+        # Resize other columns to fit contents
+        for col in range(1, 5):
+            self.tree.resizeColumnToContents(col)
 
-            # Source Size
-            src_mb = f['size'] / (1024**2)
-            src_size_item = QTableWidgetItem(f"{src_mb:.2f} MB")
-            src_size_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            self.table.setItem(row_idx, 2, src_size_item)
+    def _propagate_down(self, item, state):
+        for i in range(item.childCount()):
+            child = item.child(i)
+            child.setCheckState(0, state)
+            self._propagate_down(child, state)
 
-            # Target Size
-            if f.get('target_exists'):
-                tgt_mb = f['target_size'] / (1024**2)
-                tgt_size_item = QTableWidgetItem(f"{tgt_mb:.2f} MB")
-            else:
-                tgt_size_item = QTableWidgetItem("--")
-            tgt_size_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            self.table.setItem(row_idx, 3, tgt_size_item)
-
-            # Conflict Details
-            conflict = f.get('conflict_type', 'new')
-            if conflict == 'new':
-                txt = "NEW FILE"
-                col = Qt.green
-            elif conflict == 'overwrite_size':
-                txt = "OVERWRITE (Size changed)"
-                col = Qt.cyan
-            elif conflict == 'overwrite_newer':
-                txt = "OVERWRITE (Source is newer)"
-                col = Qt.cyan
-            else:
-                txt = "OVERWRITE"
-                col = Qt.cyan
-
-            conflict_item = QTableWidgetItem(txt)
-            conflict_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            conflict_item.setForeground(col)
-            self.table.setItem(row_idx, 4, conflict_item)
-
-            # Last Modified Date (Source)
-            dt_str = datetime.fromtimestamp(f['mtime']).strftime("%Y-%m-%d %H:%M:%S")
-            time_item = QTableWidgetItem(dt_str)
-            time_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-            self.table.setItem(row_idx, 5, time_item)
-
-        # Resize columns to content
-        self.table.resizeColumnToContents(0)
-        self.table.resizeColumnToContents(2)
-        self.table.resizeColumnToContents(3)
-        self.table.resizeColumnToContents(4)
-        self.table.resizeColumnToContents(5)
+    def on_item_changed(self, item, column):
+        if column != 0 or self._updating_checks:
+            return
+            
+        self._updating_checks = True
+        try:
+            state = item.checkState(0)
+            if state != Qt.PartiallyChecked:
+                self._propagate_down(item, state)
+        finally:
+            self._updating_checks = False
 
     def select_all(self):
-        for f in self.pending_files:
-            if 'chk_reference' in f:
-                f['chk_reference'].setChecked(True)
+        self._updating_checks = True
+        try:
+            root = self.tree.invisibleRootItem()
+            for i in range(root.childCount()):
+                item = root.child(i)
+                item.setCheckState(0, Qt.Checked)
+                self._propagate_down(item, Qt.Checked)
+        finally:
+            self._updating_checks = False
 
     def select_none(self):
-        for f in self.pending_files:
-            if 'chk_reference' in f:
-                f['chk_reference'].setChecked(False)
+        self._updating_checks = True
+        try:
+            root = self.tree.invisibleRootItem()
+            for i in range(root.childCount()):
+                item = root.child(i)
+                item.setCheckState(0, Qt.Unchecked)
+                self._propagate_down(item, Qt.Unchecked)
+        finally:
+            self._updating_checks = False
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Space:
+            selected_items = self.tree.selectedItems()
+            if selected_items:
+                # Find the target state based on the first selected item's checkState
+                first_state = selected_items[0].checkState(0)
+                target_state = Qt.Unchecked if first_state == Qt.Checked else Qt.Checked
+                
+                self._updating_checks = True
+                try:
+                    for item in selected_items:
+                        item.setCheckState(0, target_state)
+                        self._propagate_down(item, target_state)
+                finally:
+                    self._updating_checks = False
+                
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def on_proceed(self):
-        # Gather all selected files
         self.selected_files = []
-        for f in self.pending_files:
-            if 'chk_reference' in f and f['chk_reference'].isChecked():
-                # We strip the checkbox reference before passing to avoid PySide6 layout reference leak
-                clean_f = {
-                    'relative_path': f['relative_path'],
-                    'abs_src': f['abs_src'],
-                    'abs_dst': f['abs_dst'],
-                    'size': f['size'],
-                    'mtime': f['mtime']
-                }
-                self.selected_files.append(clean_f)
+        
+        def collect_checked(item):
+            file_data = item.data(0, Qt.UserRole)
+            if file_data is not None:
+                if item.checkState(0) == Qt.Checked:
+                    clean_f = {
+                        'relative_path': file_data['relative_path'],
+                        'abs_src': file_data['abs_src'],
+                        'abs_dst': file_data['abs_dst'],
+                        'size': file_data['size'],
+                        'mtime': file_data['mtime']
+                    }
+                    self.selected_files.append(clean_f)
+            else:
+                for i in range(item.childCount()):
+                    collect_checked(item.child(i))
+
+        root = self.tree.invisibleRootItem()
+        for i in range(root.childCount()):
+            collect_checked(root.child(i))
 
         if not self.selected_files:
             from PySide6.QtWidgets import QMessageBox

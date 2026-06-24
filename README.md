@@ -83,12 +83,12 @@ python scratch/verify_sync_modes.py
 
 ## ⚙️ Global Configuration Settings
 
-Click the **Settings** button in the top right corner of the dashboard to configure global parameters:
+Click the **Settings** button in the top right corner of the dashboard to configure global engine parameters:
 
-1. **Path to ffmpeg.exe:** The absolute path to your system's `ffmpeg` executable. This is required if you enable **Automated Review Proxies** on any job. You can click **Test Binary** to verify configuration.
-2. **File Settle Time (sec):** The cooldown duration (default: `60` seconds) since a file's last modified timestamp before it is synced. This prevents the app from copying files that are still being written by render nodes or active artist processes.
-3. **Max Worker Threads:** The maximum number of concurrent files copied or checked simultaneously (default: `4`). Adjust based on network and disk IO capabilities.
-4. **Folder Scan Tick (sec):** The background scheduler's polling rate (default: `30` seconds). The app wakes up at this interval to check if any active scheduled jobs are due.
+1. **Path to ffmpeg.exe:** The absolute path to your system's `ffmpeg` executable. This is required if you enable **Automated Review Proxies** on any job. Click the **Test Binary** button to verify that the path is valid and the executable starts correctly.
+2. **File Settle Time (sec):** The wait time (default: `60` seconds) since a file's last modified timestamp before it is synced. This checks the file size and modification time, ensuring that the file is completely written and closed by the operating system (or render nodes like Arnold, Karma, or VRay) before the engine attempts to copy it, preventing corrupted or half-written transfers.
+3. **Max Worker Threads:** The concurrency thread pool level (default: `4`). It defines how many files the engine copies or processes in parallel. Higher values (e.g. `8` or `16`) speed up large transfers of small files on fast local SSDs or 10Gb lines, while lower values (e.g. `2` or `3`) prevent slower mechanical drives or limited network lines from choking under disk queue overhead.
+4. **Folder Scan Tick (sec):** The background polling interval (default: `30` seconds) at which the scheduler wakes up to scan source folders and run scheduled jobs. Keep it low for near-real-time updates, or increase it (e.g., `300` seconds / 5 minutes) to reduce CPU and network scanning overhead on slow servers or network-attached storage (NAS).
 
 ---
 
