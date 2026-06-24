@@ -71,7 +71,7 @@ class FileSnifferApp(QApplication):
         self.tray_icon.setToolTip("FileSniffer Service")
 
         # Context Menu
-        menu = QMenu()
+        menu = QMenu(self.window)
         
         open_action = menu.addAction("Restore Dashboard")
         open_action.triggered.connect(self.show_dashboard)

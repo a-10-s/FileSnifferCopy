@@ -97,24 +97,31 @@ def get_stylesheet():
 
         /* Inputs, SpinBoxes, ComboBoxes */
         QLineEdit, QSpinBox, QComboBox, QTimeEdit {
-            background-color: #18181B;
-            border: 1px solid #27272A;
+            background-color: #222226;
+            border: 1px solid #3F3F46;
             border-radius: 4px;
             padding: 6px;
             color: #E4E4E7;
         }
+        QLineEdit:hover, QSpinBox:hover, QComboBox:hover, QTimeEdit:hover {
+            border-color: #FF6B00;
+            background-color: #2A2A2F;
+        }
         QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QTimeEdit:focus {
             border: 1px solid #FF6B00;
-        }
-        QComboBox:hover {
-            border: 1px solid #FF6B00;
-            background-color: #27272A;
+            background-color: #1E1E22;
         }
         QComboBox::drop-down {
             subcontrol-origin: padding;
             subcontrol-position: top right;
             width: 25px;
-            border-left: 1px solid #27272A;
+            border-left: 1px solid #3F3F46;
+            background-color: #2D2D30;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        QComboBox::drop-down:hover {
+            background-color: #FF6B00;
         }
         QComboBox::down-arrow {
             image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF6B00' width='18px' height='18px'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
@@ -127,6 +134,28 @@ def get_stylesheet():
             selection-background-color: #FF6B00;
             selection-color: #FFFFFF;
             color: #E4E4E7;
+        }
+
+        /* QMenu Styling (Tray Context Menu) */
+        QMenu {
+            background-color: #18181B;
+            border: 1px solid #3F3F46;
+            border-radius: 4px;
+            color: #E4E4E7;
+            padding: 4px 0px;
+        }
+        QMenu::item {
+            padding: 6px 24px;
+            background-color: transparent;
+        }
+        QMenu::item:selected {
+            background-color: #FF6B00;
+            color: #FFFFFF;
+        }
+        QMenu::separator {
+            height: 1px;
+            background-color: #27272A;
+            margin: 4px 0px;
         }
 
         /* Scroll Area and Viewports */
