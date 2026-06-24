@@ -114,6 +114,9 @@ class ProgressWindow(QDialog):
         self.table.setHorizontalHeaderLabels(["File Path", "Size", "Status", "Speed", "Details"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch) # Path stretch
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(True)
         layout.addWidget(self.table)
@@ -134,6 +137,7 @@ class ProgressWindow(QDialog):
         layout.addLayout(footer_layout)
 
     def on_filter_changed(self, text=None):
+        self.last_table_refresh = time.time()
         self.refresh_table()
 
     def cancel_sync(self):
@@ -233,7 +237,14 @@ class ProgressWindow(QDialog):
                 self.status_badge.setText("COMPLETED")
                 self.status_badge.setStyleSheet("background-color: #10B981; color: #ffffff; font-weight: bold; padding: 2px 8px; border-radius: 4px;")
 
-        self.refresh_table()
+        # Only refresh the table at most once every 1.5 seconds, or immediately if finished
+        curr_time = time.time()
+        if not hasattr(self, 'last_table_refresh'):
+            self.last_table_refresh = 0
+            
+        if not is_running or (curr_time - self.last_table_refresh >= 1.5):
+            self.last_table_refresh = curr_time
+            self.refresh_table()
 
     def refresh_table(self):
         if not self.final_snapshot:
@@ -310,7 +321,3 @@ class ProgressWindow(QDialog):
             else:
                 detail_item.setForeground(Qt.gray)
             self.table.setItem(row_idx, 4, detail_item)
-
-        self.table.resizeColumnToContents(1)
-        self.table.resizeColumnToContents(2)
-        self.table.resizeColumnToContents(3)
