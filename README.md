@@ -143,6 +143,14 @@ If you want to package FileSniffer into a standalone executable or application b
    ```
 4. The executable file will be built inside the `dist/` directory as `FileSniffer.exe`.
 
+> [!TIP]
+> If your default terminal `python` command points to a system-wide Python that lacks `PySide6` or `Pillow`, run the script and compiler using the project's virtual environment path:
+> ```bash
+> .\venv\Scripts\python.exe scratch/generate_ico.py
+> .\venv\Scripts\pyinstaller FileSniffer.spec
+> ```
+
+
 ### macOS Build (App Bundle)
 
 1. Install PyInstaller:
