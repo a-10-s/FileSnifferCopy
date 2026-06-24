@@ -365,14 +365,31 @@ def scan_job_files(job):
             # Check DB state
             db_state = database.get_sync_state(job_id, rel_path)
             
+            # If target already contains the file with the same size and is newer/equal to source (within 1.0s),
+            # we treat it as already synced to avoid redundant copies (especially if manually copied).
+            target_already_matching = False
+            if abs_dst.exists():
+                try:
+                    dst_stat = abs_dst.stat()
+                    if dst_stat.st_size == file_size and (dst_stat.st_mtime >= mtime - 1.0):
+                        target_already_matching = True
+                except Exception:
+                    pass
+
             needs_sync = False
-            if not db_state:
-                needs_sync = True
+            if target_already_matching:
+                # Auto-heal DB state if it is not marked as synced or has different parameters
+                if not db_state or db_state['file_size'] != file_size or abs(db_state['mtime'] - mtime) > 0.1 or db_state['status'] != 'synced':
+                    sync_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    database.set_sync_state(job_id, rel_path, file_size, mtime, 'synced', sync_time_str)
             else:
-                # If size changed or modification time is newer in source
-                # Allow a small float threshold for mtime comparisons
-                if db_state['file_size'] != file_size or abs(db_state['mtime'] - mtime) > 0.1 or db_state['status'] == 'failed':
+                if not db_state:
                     needs_sync = True
+                else:
+                    # If size changed or modification time is newer in source
+                    # Allow a small float threshold for mtime comparisons
+                    if db_state['file_size'] != file_size or abs(db_state['mtime'] - mtime) > 0.1 or db_state['status'] == 'failed':
+                        needs_sync = True
                     
             if needs_sync:
                 target_exists = abs_dst.exists()
