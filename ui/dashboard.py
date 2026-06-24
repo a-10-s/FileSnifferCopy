@@ -20,6 +20,7 @@ class SyncSignals(QObject):
     """Thread-safe signals to update GUI from background threads."""
     progress_signal = Signal(int, str, str, int, int) # job_id, rel_path, status, bytes_tx, bytes_saved
     finished_signal = Signal(int, bool, str) # job_id, success, message
+    scan_finished_signal = Signal(int, list, str) # job_id, pending_files, error_message
 
 # Instantiate global sync signals
 sync_signals = SyncSignals()
@@ -161,12 +162,31 @@ class JobCard(QFrame):
         if running_info:
             self.status_label.setText("Running...")
             self.status_label.setStyleSheet("color: #00E5FF; font-weight: bold;")
-        elif not self.job['active']:
-            self.status_label.setText("Paused")
-            self.status_label.setStyleSheet("color: #71717A; font-weight: bold;")
+            
+            # Switch button to Stop Copying
+            if running_info.get('cancel_requested', False):
+                self.sync_btn.setText("Cancelling...")
+                self.sync_btn.setEnabled(False)
+            else:
+                self.sync_btn.setText("Stop Copying")
+                self.sync_btn.setEnabled(True)
+                self.sync_btn.setObjectName("dangerBtn")
+                self.sync_btn.style().unpolish(self.sync_btn)
+                self.sync_btn.style().polish(self.sync_btn)
         else:
-            self.status_label.setText("Idle")
-            self.status_label.setStyleSheet("color: #10B981; font-weight: bold;")
+            if not self.job['active']:
+                self.status_label.setText("Paused")
+                self.status_label.setStyleSheet("color: #71717A; font-weight: bold;")
+            else:
+                self.status_label.setText("Idle")
+                self.status_label.setStyleSheet("color: #10B981; font-weight: bold;")
+                
+            # Restore button to Run Now
+            self.sync_btn.setText("Run Now")
+            self.sync_btn.setEnabled(True)
+            self.sync_btn.setObjectName("primaryBtn")
+            self.sync_btn.style().unpolish(self.sync_btn)
+            self.sync_btn.style().polish(self.sync_btn)
 
     def update_active_button_label(self):
         if self.job['active']:
@@ -205,60 +225,84 @@ class JobCard(QFrame):
             database.delete_job(self.job['id'])
             self.dashboard.refresh_jobs()
 
+    def start_sync_execution(self, selected_files=None):
+        job_id = self.job['id']
+        sync_mode = self.job.get('sync_mode', 'mirror')
+        
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
+        self.current_file_label.setText("Starting selective updates..." if selected_files is not None else "Scanning directory...")
+        self.current_file_label.setVisible(True)
+        self.status_label.setText("Running...")
+        self.status_label.setStyleSheet("color: #00E5FF; font-weight: bold;")
+        
+        # Helper callbacks that push updates to main thread via Signals
+        def prog_cb(rel_path, status, bytes_tx, bytes_saved, err_msg=None):
+            sync_signals.progress_signal.emit(job_id, rel_path, status, bytes_tx, bytes_saved)
+            
+        def fin_cb(job_id, success, message):
+            sync_signals.finished_signal.emit(job_id, success, message)
+            
+        engine.sync_job(job_id, prog_cb, fin_cb, files_to_sync=selected_files)
+        self.update_status_display()
+        
+        if sync_mode == 'update':
+            self.open_progress_monitor()
+
     def trigger_sync(self):
         job_id = self.job['id']
         
         # Check if running
         with engine.active_syncs_lock:
             is_running = job_id in engine.active_syncs
+            cancel_requested = engine.active_syncs.get(job_id, {}).get('cancel_requested', False) if is_running else False
             
         if is_running:
-            # Request cancel
-            engine.request_cancel_sync(job_id)
-            self.sync_btn.setText("Cancelling...")
-            self.sync_btn.setEnabled(False)
+            if not cancel_requested:
+                # Request cancel
+                engine.request_cancel_sync(job_id)
+                self.update_status_display()
         else:
             # Check copy mode
             sync_mode = self.job.get('sync_mode', 'mirror')
-            selected_files = None
             
             if sync_mode == 'update':
-                try:
-                    pending_files = engine.scan_job_files(self.job)
-                except Exception as e:
-                    QMessageBox.critical(self, "Scan Error", f"Failed to scan source directory:\n{str(e)}")
-                    return
-                    
-                if not pending_files:
-                    QMessageBox.information(self, "Sync Up to Date", "All files in the destination directory are fully up to date.")
-                    return
-                    
-                from ui.analysis_window import AnalysisWindow
-                analysis = AnalysisWindow(self.job, pending_files, self.dashboard)
-                if analysis.exec() == QDialog.Accepted:
-                    selected_files = analysis.selected_files
-                else:
-                    return
+                self.sync_btn.setText("Scanning...")
+                self.sync_btn.setEnabled(False)
+                self.status_label.setText("Scanning...")
+                self.status_label.setStyleSheet("color: #00E5FF; font-weight: bold;")
+                
+                import threading
+                def run_scan():
+                    try:
+                        pending_files = engine.scan_job_files(self.job)
+                        sync_signals.scan_finished_signal.emit(job_id, pending_files, "")
+                    except Exception as e:
+                        sync_signals.scan_finished_signal.emit(job_id, [], str(e))
+                        
+                t = threading.Thread(target=run_scan, daemon=True)
+                t.start()
+            else:
+                self.start_sync_execution(None)
 
-            self.sync_btn.setText("Cancel Run")
-            self.progress_bar.setValue(0)
-            self.progress_bar.setVisible(True)
-            self.current_file_label.setText("Scanning directory..." if selected_files is None else "Starting selective updates...")
-            self.current_file_label.setVisible(True)
-            self.status_label.setText("Running...")
-            self.status_label.setStyleSheet("color: #00E5FF; font-weight: bold;")
+    def handle_scan_finished(self, pending_files, error_msg):
+        self.sync_btn.setText("Run Now")
+        self.sync_btn.setEnabled(True)
+        self.update_status_display()
+        
+        if error_msg:
+            QMessageBox.critical(self, "Scan Error", f"Failed to scan source directory:\n{error_msg}")
+            return
             
-            # Helper callbacks that push updates to main thread via Signals
-            def prog_cb(rel_path, status, bytes_tx, bytes_saved, err_msg=None):
-                sync_signals.progress_signal.emit(job_id, rel_path, status, bytes_tx, bytes_saved)
-                
-            def fin_cb(job_id, success, message):
-                sync_signals.finished_signal.emit(job_id, success, message)
-                
-            engine.sync_job(job_id, prog_cb, fin_cb, files_to_sync=selected_files)
-
-            if sync_mode == 'update':
-                self.open_progress_monitor()
+        if not pending_files:
+            QMessageBox.information(self, "Sync Up to Date", "All files in the destination directory are fully up to date.")
+            return
+            
+        from ui.analysis_window import AnalysisWindow
+        analysis = AnalysisWindow(self.job, pending_files, self.dashboard)
+        if analysis.exec() == QDialog.Accepted:
+            selected_files = analysis.selected_files
+            self.start_sync_execution(selected_files)
 
     def update_progress(self, processed, total, current_file):
         # Pull live speed from engine
@@ -283,6 +327,8 @@ class JobCard(QFrame):
             self.current_file_label.setText("Scanning...")
             self.current_file_label.setVisible(True)
             self.speed_label.setVisible(False)
+            
+        self.update_status_display()
 
     def reset_progress(self):
         self.progress_bar.setVisible(False)
@@ -337,8 +383,38 @@ class DashboardWindow(QMainWindow):
         # Track open modeless progress windows keyed by job_id
         self.progress_windows = {}
 
+        self.load_cached_settings()
+
         self.init_ui()
         self.setup_signals()
+
+    def load_cached_settings(self):
+        self.poll_interval = database.get_setting("poll_interval_seconds", 30)
+
+    def update_global_progress(self):
+        with engine.active_syncs_lock:
+            active_jobs = list(engine.active_syncs.values())
+            
+        if not active_jobs:
+            self.global_progress_container.setVisible(False)
+            return
+            
+        total_processed = 0
+        total_files = 0
+        
+        for info in active_jobs:
+            total_processed += info.get('processed_files', 0)
+            total_files += info.get('total_files', 0)
+            
+        if total_files > 0:
+            percentage = int((total_processed / total_files) * 100)
+            self.global_progress_bar.setValue(percentage)
+            self.global_progress_label.setText(f"Overall Sync Progress: {percentage}% ({total_processed}/{total_files} files)")
+        else:
+            self.global_progress_bar.setValue(0)
+            self.global_progress_label.setText("Overall Sync Progress: Scanning...")
+            
+        self.global_progress_container.setVisible(True)
         
         # Background ticks timer (1 second interval)
         self.timer = QTimer(self)
@@ -421,6 +497,26 @@ class DashboardWindow(QMainWindow):
 
         main_layout.addLayout(stats_layout)
 
+        # Global Progress Bar (visible only when syncing)
+        self.global_progress_container = QFrame()
+        self.global_progress_container.setObjectName("cardFrame")
+        self.global_progress_container.setStyleSheet("background-color: #111115; border-color: #FF6B00;")
+        global_progress_layout = QVBoxLayout(self.global_progress_container)
+        global_progress_layout.setContentsMargins(12, 12, 12, 12)
+        global_progress_layout.setSpacing(6)
+        
+        self.global_progress_label = QLabel("Overall Sync Progress: 0%")
+        self.global_progress_label.setStyleSheet("color: #E4E4E7; font-weight: bold;")
+        global_progress_layout.addWidget(self.global_progress_label)
+        
+        self.global_progress_bar = QProgressBar()
+        self.global_progress_bar.setFixedHeight(18)
+        self.global_progress_bar.setValue(0)
+        global_progress_layout.addWidget(self.global_progress_bar)
+        
+        self.global_progress_container.setVisible(False)
+        main_layout.addWidget(self.global_progress_container)
+
         # Scrollable Job Cards Panel
         jobs_vbox = QVBoxLayout()
         jobs_header = QLabel("Cron Jobs")
@@ -451,6 +547,7 @@ class DashboardWindow(QMainWindow):
         # Bind thread-safe Signals to UI updates
         sync_signals.progress_signal.connect(self.on_sync_progress)
         sync_signals.finished_signal.connect(self.on_sync_finished)
+        sync_signals.scan_finished_signal.connect(self.on_scan_finished)
 
     def refresh_jobs(self):
         # Clear existing layout (excluding the stretch at the bottom)
@@ -516,7 +613,8 @@ class DashboardWindow(QMainWindow):
 
     def open_settings_modal(self):
         modal = SettingsModal(parent=self)
-        modal.exec()
+        if modal.exec() == QDialog.Accepted:
+            self.load_cached_settings()
 
     # --- Live thread signals slots ---
 
@@ -532,10 +630,7 @@ class DashboardWindow(QMainWindow):
             current = running_info['current_file']
             self.job_cards[job_id].update_progress(processed, total, current)
             
-        # Live refresh history table in standalone window if open
-        if hasattr(self, 'log_window') and self.log_window is not None and self.log_window.isVisible():
-            self.log_window.refresh_logs()
-        self.refresh_stats()
+        self.update_global_progress()
 
     def on_sync_finished(self, job_id, success, message):
         if job_id in self.job_cards:
@@ -544,6 +639,11 @@ class DashboardWindow(QMainWindow):
         self.refresh_stats()
         if hasattr(self, 'log_window') and self.log_window is not None and self.log_window.isVisible():
             self.log_window.refresh_logs()
+        self.update_global_progress()
+
+    def on_scan_finished(self, job_id, pending_files, error_msg):
+        if job_id in self.job_cards:
+            self.job_cards[job_id].handle_scan_finished(pending_files, error_msg)
 
     # --- Core Scheduler Trigger Tick ---
 
@@ -558,9 +658,8 @@ class DashboardWindow(QMainWindow):
 
         # 2. Check schedules at configured intervals
         curr_time = time.time()
-        poll_interval = database.get_setting("poll_interval_seconds", 30)
         
-        if curr_time - self.last_scheduler_check >= poll_interval:
+        if curr_time - self.last_scheduler_check >= self.poll_interval:
             self.last_scheduler_check = curr_time
             
             # Call engine check with progress and completion callbacks
